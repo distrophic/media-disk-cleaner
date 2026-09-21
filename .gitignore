@@ -1,0 +1,46 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.pytest_tmp/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# PyInstaller / local builds
+build/
+dist/
+*.spec.bak
+
+# Secrets and local env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+id_rsa
+id_ed25519
+
+# Editors / OS
+.idea/
+.vscode/
+.cursor/
+*.swp
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Empty placeholders not needed on GitHub
+.gitkeep
+
+# Local logs (app writes to %LOCALAPPDATA%)
+*.log
