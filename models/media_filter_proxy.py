@@ -11,6 +11,7 @@ from pathlib import Path
 from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt
 
 from app.constants import LARGE_FILE_THRESHOLD_BYTES, OLD_FILE_AGE_DAYS
+from app.host import drive_key, folder_filter_key, folder_filter_match
 from models.media_file import MediaFile
 from models.media_table_model import (
     COL_CATEGORY,
@@ -108,7 +109,7 @@ class MediaFilterProxyModel(QSortFilterProxyModel):
         self._touch()
 
     def set_drive(self, value: str | None) -> None:
-        self._drive = value.strip().upper().rstrip("\\") if value else None
+        self._drive = drive_key(value) if value else None
         self._touch()
 
     def set_folder(self, value: Path | None) -> None:
@@ -116,7 +117,7 @@ class MediaFilterProxyModel(QSortFilterProxyModel):
         if value is None:
             self._folder_needle = ""
         else:
-            self._folder_needle = str(value).replace("/", "\\").rstrip("\\").casefold()
+            self._folder_needle = folder_filter_key(value)
         self._touch()
 
     def set_large_only(self, enabled: bool) -> None:
@@ -231,10 +232,8 @@ class MediaFilterProxyModel(QSortFilterProxyModel):
         if self._drive and item.drive_key != self._drive:
             return False
         if self._folder_needle:
-            haystack = str(item.normalized_path).replace("/", "\\").casefold()
-            if haystack != self._folder_needle and not haystack.startswith(
-                self._folder_needle + "\\"
-            ):
+            haystack = folder_filter_key(item.normalized_path)
+            if not folder_filter_match(haystack, self._folder_needle):
                 return False
         if self._date_from is not None or self._date_to is not None:
             if item.modified_at is None:

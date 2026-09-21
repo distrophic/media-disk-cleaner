@@ -25,6 +25,7 @@ def test_ordinary_image_is_safe_for_index(tmp_path: Path, validator: SafetyValid
     assert result.category == "image"
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-only system path")
 def test_system_path_blocked(validator: SafetyValidator) -> None:
     windows = Path(r"C:\Windows\notepad.exe")
     result = validator.is_safe_media_file(
@@ -140,7 +141,15 @@ def test_replaced_with_symlink_skipped(tmp_path: Path, validator: SafetyValidato
 def test_system_exclusion_cannot_be_enabled_via_settings() -> None:
     classifier = FileClassifier(extra_extensions={".sys": "image"})
     assert classifier.classify("driver.sys") is None
-    windows = Path(r"C:\Windows\System32")
-    assert is_excluded_system_path(windows)
     opened = FileClassifier(extra_extensions={".exe": "image"})
     assert opened.classify(Path(r"C:\Windows\notepad.exe")) is None
+    if os.name == "nt":
+        windows = Path(r"C:\Windows\System32")
+        assert is_excluded_system_path(windows)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX system roots")
+def test_posix_system_roots_are_excluded() -> None:
+    assert is_excluded_system_path(Path("/usr/share/pixmaps/icon.png"))
+    assert is_excluded_system_path(Path("/etc/passwd"))
+    assert is_excluded_system_path(Path("/proc/cpuinfo"))

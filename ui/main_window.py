@@ -231,7 +231,7 @@ class MainWindow(QMainWindow):
         self._recycle_button.setObjectName("dangerButton")
         self._recycle_button.setEnabled(False)
         self._recycle_button.setToolTip(
-            "Перемещает только явно отмеченные файлы в корзину Windows после подтверждения."
+            "Перемещает только явно отмеченные файлы в корзину после подтверждения."
         )
         layout.addWidget(self._selected_label)
         layout.addStretch(1)
@@ -300,6 +300,9 @@ class MainWindow(QMainWindow):
             self._drive_combo.addItem(self._drive_item_text(info), info)
         self._drive_combo.blockSignals(False)
         self._update_drive_overview()
+        self._results.filters.set_drive_options(
+            [info.letter for info in self._drive_service.list_target_drives() if info.available]
+        )
 
     def _drive_item_text(self, info: DriveInfo) -> str:
         if not info.available:
@@ -596,7 +599,7 @@ class MainWindow(QMainWindow):
                 f"Пропущено: {report.skipped}\n"
                 f"Ошибок: {report.errors}\n"
                 f"Примерно освобождено: {format_size_bytes(report.freed_bytes)}\n\n"
-                "Файлы можно восстановить из корзины Windows. "
+                "Файлы можно восстановить из корзины. "
                 "Запись добавлена в «Корзина и журнал»."
             ),
         )

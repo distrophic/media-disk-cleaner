@@ -14,6 +14,7 @@ from pathlib import Path
 from app.constants import (
     EXCLUDED_DIR_NAMES_ANYWHERE,
     EXCLUDED_DRIVE_ROOT_DIR_NAMES,
+    EXCLUDED_POSIX_ROOT_DIR_NAMES,
     EXCLUDED_SECURITY_PRODUCT_DIR_NAMES,
     FILE_ATTRIBUTE_HIDDEN,
     FILE_ATTRIBUTE_REPARSE_POINT,
@@ -121,8 +122,12 @@ def is_excluded_system_path(path: Path | str) -> bool:
     names = components[1:] if _looks_like_drive(components[0]) else components
     if names and names[0] in EXCLUDED_DRIVE_ROOT_DIR_NAMES:
         return True
+    if not _looks_like_drive(components[0]) and names and names[0] in EXCLUDED_POSIX_ROOT_DIR_NAMES:
+        return True
     for name in names:
         if name in EXCLUDED_DIR_NAMES_ANYWHERE:
+            return True
+        if name.startswith(".trash"):
             return True
         if name in EXCLUDED_SECURITY_PRODUCT_DIR_NAMES:
             return True

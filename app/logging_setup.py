@@ -1,4 +1,4 @@
-"""Технический лог приложения в %LOCALAPPDATA%\\MediaDiskCleaner\\logs."""
+"""Технический лог приложения в каталоге пользовательских данных."""
 
 from __future__ import annotations
 

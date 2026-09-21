@@ -29,6 +29,7 @@ from app.constants import (
     SCAN_MODE_QUICK,
     SCAN_MODE_SELECTIVE,
 )
+from app.host import is_windows, volume_id
 from core.file_classifier import FileClassifier
 from core.safety_validator import (
     SafetyValidator,
@@ -92,15 +93,23 @@ def get_current_user_home(home: Path | None = None) -> Path:
 def get_quick_scan_roots(home: Path | None = None) -> list[Path]:
     """Стандартные пользовательские папки текущей учётной записи.
 
-    Не включает корень C:\\ и профили других пользователей.
+    Не включает корень системного диска и профили других пользователей.
     Существование проверяется без обхода содержимого.
     """
     base = get_current_user_home(home)
-    roots: list[Path] = []
+    candidates: list[Path] = []
     for name in QUICK_SCAN_FOLDER_NAMES:
-        candidate = base / name
+        candidates.append(base / name)
+    if not is_windows():
+        candidates.extend(_xdg_user_dirs(base))
+    roots: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
         normalized = normalize_windows_path(candidate)
         if normalized is None:
+            continue
+        key = str(normalized)
+        if key in seen:
             continue
         if is_drive_root(normalized):
             continue
@@ -108,8 +117,33 @@ def get_quick_scan_roots(home: Path | None = None) -> list[Path]:
             continue
         if not _directory_exists_for_root(normalized):
             continue
+        seen.add(key)
         roots.append(normalized)
     return roots
+
+
+def _xdg_user_dirs(home: Path) -> list[Path]:
+    config_home = os.environ.get("XDG_CONFIG_HOME", "").strip()
+    config = Path(config_home) if config_home else home / ".config"
+    source = config / "user-dirs.dirs"
+    found: list[Path] = []
+    try:
+        text = source.read_text(encoding="utf-8")
+    except OSError:
+        return found
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if not key.startswith("XDG_") or not key.endswith("_DIR"):
+            continue
+        value = value.strip().strip('"').strip("'")
+        value = value.replace("$HOME", str(home))
+        if not value:
+            continue
+        found.append(Path(value))
+    return found
 
 
 def is_drive_root(path: Path) -> bool:
@@ -498,7 +532,7 @@ class Scanner:
             size_bytes=int(safety.size_bytes or 0),
             created_at=created_at,
             modified_at=modified_at,
-            drive=str(normalized.drive),
+            drive=volume_id(normalized),
             parent_folder=normalized.parent,
             is_selected=False,
             scan_root=scan_root,

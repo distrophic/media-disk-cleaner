@@ -1,10 +1,10 @@
 # Media Disk Cleaner
 
-Windows-приложение, которое помогает найти **свои** фото, видео и аудио и освободить место — без «магической очистки» диска и без прав администратора.
+Приложение для **Windows** и **Linux**: найти свои фото, видео и аудио и освободить место — без «магической очистки» диска и без прав администратора / root.
 
-Программа **не удаляет файлы сама**. В корзину Windows попадают только те файлы, которые вы сами отметили, и только после подтверждения. Системные папки, программы и игры в список не попадают.
+Программа **не удаляет файлы сама**. В корзину (Windows Recycle Bin или корзину FreeDesktop на Linux) попадают только файлы, которые вы отметили, и только после подтверждения. Системные папки, программы и игры в список не попадают.
 
-Подходит для Windows 10 и Windows 11. Обычная учётная запись, без UAC.
+На Windows — обычная учётная запись, без UAC. На Linux — обычный пользователь, без `sudo`.
 
 ---
 
@@ -28,7 +28,7 @@ Media Disk Cleaner делает узкую работу:
 - Выборочное сканирование ваших каталогов. Корень диска сам по себе не сканируется.
 - Таблица: поиск, фильтры по категории / типу / диску / размеру / дате.
 - Предпросмотр картинки и сведения о файле.
-- Перемещение **только отмеченных** файлов в корзину Windows.
+- Перемещение **только отмеченных** файлов в корзину.
 - Журнал операций и технический лог.
 - Отчёт в CSV и JSON.
 
@@ -49,12 +49,19 @@ Media Disk Cleaner делает узкую работу:
 
 Журналы пишутся на том компьютере, где открыли программу:
 
+Windows:
+
 ```text
 %LOCALAPPDATA%\MediaDiskCleaner\
-  logs\      app.log, operations.jsonl
-  reports\   CSV и JSON отчёты
-  settings\
 ```
+
+Linux:
+
+```text
+~/.local/share/MediaDiskCleaner/
+```
+
+(или `$XDG_DATA_HOME/MediaDiskCleaner`)
 
 На флешку логи не пишутся. На другом ПК журнал будет свой.
 
@@ -62,7 +69,9 @@ Media Disk Cleaner делает узкую работу:
 
 ### Из исходников
 
-Нужны Windows и Python 3.12+.
+Python **3.12+**.
+
+Windows:
 
 ```bat
 python -m venv .venv
@@ -70,6 +79,19 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 python main.py
 ```
+
+Linux (пакеты Qt/xcb обычно уже тянет PySide6; на чистой системе может понадобиться `libxcb` / `libglib`):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python main.py
+```
+
+или `./run.sh`, если venv уже создан.
+
+На Linux в списке томов — домашний каталог и съёмные диски из `/media`, `/run/media`, `/mnt`. Корень `/`, `/usr`, `/etc` и прочие системные пути в скан не идут.
 
 ---
 
@@ -117,6 +139,8 @@ pyinstaller --noconfirm --clean MediaDiskCleaner.spec
 
 Иконка необязательна: положите `resources/icons/app.ico`, если хотите свою. Каталоги `build\` и `dist\` в git не входят.
 
+Готовый **Linux-бинарник как Windows EXE** в поставке нет: на Linux запускайте из исходников (`python main.py` / `./run.sh`). Сборку одним файлом через PyInstaller можно сделать на самой Linux-машине, это уже не `.exe`.
+
 ---
 
 ## Структура репозитория
@@ -133,6 +157,7 @@ requirements.txt
 requirements-build.txt
 build.bat
 run_tests.bat
+run.sh
 MediaDiskCleaner.spec
 MediaDiskCleaner-onefile.spec
 ```

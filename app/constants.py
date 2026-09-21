@@ -90,6 +90,32 @@ EXCLUDED_DRIVE_ROOT_DIR_NAMES: Final[frozenset[str]] = frozenset(
     }
 )
 
+# Первый компонент POSIX-пути: /usr, /etc, /proc и т.д.
+EXCLUDED_POSIX_ROOT_DIR_NAMES: Final[frozenset[str]] = frozenset(
+    {
+        "bin",
+        "boot",
+        "dev",
+        "etc",
+        "lib",
+        "lib32",
+        "lib64",
+        "libx32",
+        "lost+found",
+        "opt",
+        "proc",
+        "root",
+        "run",
+        "sbin",
+        "snap",
+        "srv",
+        "sys",
+        "tmp",
+        "usr",
+        "var",
+    }
+)
+
 # Имена, которые нельзя обходить даже во вложенных каталогах.
 EXCLUDED_DIR_NAMES_ANYWHERE: Final[frozenset[str]] = frozenset(
     {
@@ -99,6 +125,9 @@ EXCLUDED_DIR_NAMES_ANYWHERE: Final[frozenset[str]] = frozenset(
         "config.msi",
         "msocache",
         "windows.old",
+        "lost+found",
+        ".trash",
+        ".trash-1000",
     }
 )
 

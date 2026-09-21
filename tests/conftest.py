@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from app.host import volume_id
 from models.media_file import MediaFile
 
 
@@ -24,7 +25,7 @@ def media_from_path(path: Path, scan_root: Path, *, selected: bool = False) -> M
         size_bytes=st.st_size,
         created_at=datetime.fromtimestamp(st.st_ctime),
         modified_at=datetime.fromtimestamp(st.st_mtime),
-        drive=str(path.drive),
+        drive=volume_id(path),
         parent_folder=path.parent,
         is_selected=selected,
         scan_root=scan_root,

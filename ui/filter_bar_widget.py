@@ -47,8 +47,9 @@ class FilterBarWidget(QWidget):
         self._reset_extensions()
         self.drive = QComboBox()
         self.drive.addItem("Все диски", None)
-        self.drive.addItem("C:", "C:")
-        self.drive.addItem("D:", "D:")
+        self._default_drives = ("C:", "D:")
+        for letter in self._default_drives:
+            self.drive.addItem(letter, letter)
         self.min_size = QLineEdit()
         self.min_size.setPlaceholderText("Мин. размер")
         self.min_size.setMaximumWidth(90)
@@ -147,6 +148,25 @@ class FilterBarWidget(QWidget):
         self.large_only.setChecked(large_only)
         self.category.blockSignals(False)
         self.large_only.blockSignals(False)
+
+    def set_drive_options(self, drives: list[str]) -> None:
+        current = self.drive.currentData()
+        self.drive.blockSignals(True)
+        self.drive.clear()
+        self.drive.addItem("Все диски", None)
+        seen: set[str] = set()
+        for letter in drives:
+            key = str(letter).strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            self.drive.addItem(key, key)
+        if not seen:
+            for letter in self._default_drives:
+                self.drive.addItem(letter, letter)
+        index = self.drive.findData(current)
+        self.drive.setCurrentIndex(index if index >= 0 else 0)
+        self.drive.blockSignals(False)
 
     def reset(self) -> None:
         self.category.setCurrentIndex(0)

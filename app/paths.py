@@ -6,11 +6,11 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
 from app.constants import APP_ID
+from app.host import user_data_home
 
 
 def is_frozen() -> bool:
@@ -25,10 +25,7 @@ def resource_root() -> Path:
 
 
 def user_data_root() -> Path:
-    local = os.environ.get("LOCALAPPDATA", "").strip()
-    if not local:
-        local = str(Path.home() / "AppData" / "Local")
-    return Path(local) / APP_ID
+    return user_data_home() / APP_ID
 
 
 def logs_dir() -> Path:
@@ -52,6 +49,6 @@ def operations_journal_path() -> Path:
 
 
 def ensure_user_dirs() -> None:
-    """Создать каталоги, доступные обычному пользователю, без UAC."""
+    """Создать каталоги, доступные обычной учётной записи."""
     for folder in (logs_dir(), reports_dir(), settings_dir()):
         folder.mkdir(parents=True, exist_ok=True)

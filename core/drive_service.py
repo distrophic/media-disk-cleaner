@@ -1,17 +1,15 @@
-"""Безопасные сведения о томах C: и D:.
+"""Сведения о томах: C:/D: на Windows, домашние и съёмные точки на Linux.
 
-Модуль только читает. Не сканирует содержимое, не меняет буквы дисков
-и не запрашивает права администратора.
+Модуль только читает. Не сканирует содержимое и не запрашивает root/UAC.
 """
 
 from __future__ import annotations
 
-import ctypes
 import shutil
-from ctypes import wintypes
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.host import is_windows, volume_id
 from core.safety_validator import normalize_windows_path
 
 _DRIVE_TYPE_NAMES = {
@@ -34,6 +32,30 @@ _DRIVE_TYPE_LABELS_RU = {
     "ramdisk": "RAM-диск",
 }
 
+_SKIP_FS = frozenset(
+    {
+        "autofs",
+        "bpf",
+        "cgroup",
+        "cgroup2",
+        "debugfs",
+        "devpts",
+        "devtmpfs",
+        "efivarfs",
+        "fusectl",
+        "fuse.gvfsd-fuse",
+        "nsfs",
+        "overlay",
+        "proc",
+        "pstore",
+        "securityfs",
+        "squashfs",
+        "sysfs",
+        "tmpfs",
+        "tracefs",
+    }
+)
+
 
 @dataclass(frozen=True, slots=True)
 class DriveInfo:
@@ -50,12 +72,14 @@ class DriveInfo:
 
 
 class DriveService:
-    """Опрос томов C: и D: без обхода пользовательских файлов."""
+    """Опрос томов без обхода пользовательских файлов."""
 
     TARGET_LETTERS = ("C", "D")
 
     def list_target_drives(self) -> list[DriveInfo]:
-        return [self.inspect_letter(letter) for letter in self.TARGET_LETTERS]
+        if is_windows():
+            return [self.inspect_letter(letter) for letter in self.TARGET_LETTERS]
+        return self._list_posix_volumes()
 
     def inspect_letter(self, letter: str) -> DriveInfo:
         clean = letter.strip().rstrip(":\\/").upper()[:1] or "?"
@@ -75,8 +99,8 @@ class DriveService:
                 type_label_ru=_DRIVE_TYPE_LABELS_RU["no_root"],
                 status_note="диск недоступен",
             )
-        drive_type = self._drive_type(root_path)
-        label = self._volume_label(root_path)
+        drive_type = self._windows_drive_type(root_path)
+        label = self._windows_volume_label(root_path)
         total, used, free = self._usage(root_path)
         return DriveInfo(
             letter=f"{clean}:",
@@ -91,6 +115,69 @@ class DriveService:
             status_note="",
         )
 
+    def _list_posix_volumes(self) -> list[DriveInfo]:
+        found: list[DriveInfo] = []
+        seen: set[str] = set()
+        home = Path.home()
+        found.append(self._posix_info(home, label="домашний каталог", drive_type="fixed"))
+        seen.add(str(home))
+        for mount in self._posix_mount_points():
+            key = str(mount)
+            if key in seen:
+                continue
+            seen.add(key)
+            kind = "removable" if _looks_removable(mount) else "fixed"
+            found.append(self._posix_info(mount, label=mount.name or str(mount), drive_type=kind))
+        return found
+
+    def _posix_info(self, root: Path, *, label: str, drive_type: str) -> DriveInfo:
+        normalized = normalize_windows_path(root) or root
+        available = self._root_exists(normalized)
+        total = used = free = None
+        if available:
+            total, used, free = self._usage(normalized)
+        letter = volume_id(normalized)
+        return DriveInfo(
+            letter=letter,
+            root_path=normalized,
+            available=available,
+            label=label,
+            total_bytes=total,
+            used_bytes=used,
+            free_bytes=free,
+            drive_type=drive_type,
+            type_label_ru=_DRIVE_TYPE_LABELS_RU.get(drive_type, drive_type),
+            status_note="" if available else "том недоступен",
+        )
+
+    def _posix_mount_points(self) -> list[Path]:
+        mounts_file = Path("/proc/mounts")
+        if not mounts_file.is_file():
+            return []
+        prefixes = ("/home", "/media", "/mnt", "/run/media", "/data")
+        result: list[Path] = []
+        try:
+            lines = mounts_file.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return []
+        for line in lines:
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+            raw_mount, fs_type = parts[1], parts[2]
+            mount = Path(_unescape_mount(raw_mount))
+            if fs_type in _SKIP_FS:
+                continue
+            text = str(mount)
+            if text == "/":
+                continue
+            if not text.startswith(prefixes):
+                continue
+            if text in {"/home", "/media", "/mnt", "/run", "/run/media"}:
+                continue
+            result.append(mount)
+        return result
+
     def _root_exists(self, root: Path) -> bool:
         try:
             return root.exists()
@@ -104,8 +191,13 @@ class DriveService:
             return (None, None, None)
         return (int(usage.total), int(usage.used), int(usage.free))
 
-    def _drive_type(self, root: Path) -> str:
+    def _windows_drive_type(self, root: Path) -> str:
+        if not is_windows():
+            return "unknown"
         try:
+            import ctypes
+            from ctypes import wintypes
+
             get_type = ctypes.windll.kernel32.GetDriveTypeW
             get_type.argtypes = [wintypes.LPCWSTR]
             get_type.restype = wintypes.UINT
@@ -114,8 +206,13 @@ class DriveService:
             return "unknown"
         return _DRIVE_TYPE_NAMES.get(code, "unknown")
 
-    def _volume_label(self, root: Path) -> str:
+    def _windows_volume_label(self, root: Path) -> str:
+        if not is_windows():
+            return ""
         try:
+            import ctypes
+            from ctypes import wintypes
+
             get_info = ctypes.windll.kernel32.GetVolumeInformationW
             volume_name = ctypes.create_unicode_buffer(261)
             fs_name = ctypes.create_unicode_buffer(261)
@@ -148,3 +245,12 @@ class DriveService:
         if not ok:
             return ""
         return str(volume_name.value or "")
+
+
+def _unescape_mount(value: str) -> str:
+    return value.replace("\\040", " ").replace("\\011", "\t")
+
+
+def _looks_removable(path: Path) -> bool:
+    text = str(path)
+    return text.startswith("/media/") or text.startswith("/run/media/") or text.startswith("/mnt/")

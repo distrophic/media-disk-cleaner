@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from app.host import drive_key as host_drive_key
+
 from .safety_result import ExpectedMetadata
 
 
@@ -53,7 +55,7 @@ class MediaFile:
             self.size_bytes = 0
         if self.scanned_size_bytes < 0:
             self.scanned_size_bytes = 0
-        self.drive_key = self.drive.upper().rstrip("\\")
+        self.drive_key = host_drive_key(self.drive)
         self.search_blob = f"{self.name}\0{self.normalized_path}".casefold()
 
     def expected_metadata(self) -> ExpectedMetadata:
